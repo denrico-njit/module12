@@ -8,7 +8,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 
 from app.schemas.base import UserCreate
@@ -65,7 +66,7 @@ class User(Base):
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             user_id = payload.get("sub")
             return uuid.UUID(user_id) if user_id else None
-        except (JWTError, ValueError):
+        except (InvalidTokenError, ValueError):
             return None
 
     @classmethod
