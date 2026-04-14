@@ -8,11 +8,11 @@ from app.enums import OperationType
 class CalculationCreate(BaseModel):
     a: float
     b: float
-    type: OperationType
+    operation: OperationType
 
     @model_validator(mode="after")
     def check_no_zero_divisor(self):
-        if self.type == OperationType.divide and self.b == 0:
+        if self.operation == OperationType.divide and self.b == 0:
             raise ValueError("Cannot divide by zero")
         return self
 
@@ -22,8 +22,8 @@ class CalculationRead(BaseModel):
     user_id: UUID
     a: float
     b: float
-    type: OperationType
+    operation: OperationType
     result: Optional[float]
-    created_at: datetime
+    timestamp: datetime
 
     model_config = ConfigDict(from_attributes=True)

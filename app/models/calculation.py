@@ -13,8 +13,8 @@ class Calculation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False)
-    operand1 = Column(Float, nullable=False)
-    operand2 = Column(Float, nullable=False)
+    a = Column(Float, nullable=False)
+    b = Column(Float, nullable=False)
     operation = Column(Enum(OperationType), nullable=False)
     result = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
@@ -35,7 +35,7 @@ class Calculation(Base):
         }
 
         result = operations[type](a, b)
-        calculation = cls(user_id=user_id, operand1=a, operand2=b, operation=type, result=result)
+        calculation = cls(user_id=user_id, a=a, b=b, operation=type, result=result)
         db.add(calculation)
         db.flush()
         return calculation
