@@ -1,6 +1,6 @@
-# Module 11 — FastAPI Calculator
+# Module 12 — FastAPI Calculator with User Authentication
 
-A FastAPI application with a PostgreSQL backend, full test suite, and a CI/CD pipeline that builds, scans, and deploys a Docker image.
+A FastAPI application with user authentication (JWT), BREAD calculation endpoints, a PostgreSQL backend, full test suite, and a CI/CD pipeline that builds, scans, and deploys a Docker image.
 
 **Docker Hub:** https://hub.docker.com/r/de269/module11
 
@@ -14,14 +14,14 @@ Make sure you have a PostgreSQL instance running (see Docker setup below) and yo
 # Unit tests
 pytest tests/unit/
 
-# Integration tests
+# Integration tests (requires PostgreSQL)
 pytest tests/integration/
 
 # End-to-end tests (requires the app to be running)
 pytest tests/e2e/
 
-# All tests with coverage
-pytest
+# All tests with coverage (excluding e2e)
+pytest --ignore=tests/e2e
 ```
 
 The `DATABASE_URL` environment variable must be set for integration and e2e tests:
@@ -35,6 +35,68 @@ Or use Docker Compose to spin up the full stack:
 ```bash
 docker compose up
 ```
+
+---
+
+## Integration Tests
+
+Integration tests cover the full request/response cycle against a real PostgreSQL database. Each test gets an isolated session that is truncated after the test runs.
+
+**Auth endpoints** (`tests/integration/test_auth_endpoints.py`):
+- `POST /auth/register` — successful registration, duplicate user, password mismatch, weak password
+- `POST /auth/login` — successful login, wrong password, non-existent user, login with email
+
+**Calculation endpoints** (`tests/integration/test_calculation_endpoints.py`):
+- `POST /calculations` — add calculation, divide by zero, unauthenticated request
+- `GET /calculations` — browse all calculations for current user, empty list
+- `GET /calculations/{id}` — read specific calculation, not found
+- `PUT /calculations/{id}` — edit calculation, not found
+- `DELETE /calculations/{id}` — delete calculation and verify removal, not found
+
+Run just the new endpoint tests:
+
+```bash
+pytest tests/integration/test_auth_endpoints.py tests/integration/test_calculation_endpoints.py -v
+```
+
+---
+
+## Manual Testing via OpenAPI (Swagger UI)
+
+1. Start the server:
+
+```bash
+uvicorn main:app --reload
+```
+
+2. Open **http://127.0.0.1:8000/docs** in your browser.
+
+3. Register a user — expand `POST /auth/register`, click **Try it out**, and submit:
+
+```json
+{
+  "first_name": "John",
+  "last_name": "Doe",
+  "email": "john@example.com",
+  "username": "johndoe",
+  "password": "SecurePass1!",
+  "confirm_password": "SecurePass1!"
+}
+```
+
+4. Authenticate — click the **Authorize** button at the top of the page, enter your username and password, and click **Authorize**. This stores the JWT token for all subsequent requests.
+
+5. Test the calculation endpoints — expand any `/calculations` route, click **Try it out**, and submit a request. For example, `POST /calculations`:
+
+```json
+{
+  "a": 10,
+  "b": 5,
+  "operation": "add"
+}
+```
+
+You can also view the auto-generated API schema at **http://127.0.0.1:8000/redoc**.
 
 ---
 
