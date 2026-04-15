@@ -98,8 +98,8 @@ jobs:
         with:
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/module11:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/module11:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/module12:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/module12:${{ github.sha }}
           platforms: linux/amd64,linux/arm64
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/module11:cache
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/module12:cache
           cache-to: type=inline,mode=max
