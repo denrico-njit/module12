@@ -27,3 +27,15 @@ class CalculationRead(BaseModel):
     timestamp: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CalculationUpdate(BaseModel):
+    a: Optional[float] = None
+    b: Optional[float] = None
+    operation: Optional[OperationType] = None
+
+    @model_validator(mode="after")
+    def check_no_zero_divisor(self):
+        if self.operation == OperationType.divide and self.b == 0:
+            raise ValueError("Cannot divide by zero")
+        return self
