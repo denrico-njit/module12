@@ -6,14 +6,9 @@ from typing import Optional, Dict, Any
 from sqlalchemy import Column, String, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 import jwt
 from jwt.exceptions import InvalidTokenError
-from pydantic import ValidationError
-
-from app.schemas.base import UserCreate
-from app.schemas.user import UserResponse, Token
 
 Base = declarative_base()
 
@@ -60,6 +55,14 @@ class User(Base):
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
     @staticmethod
+    def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+        """Create a JWT refresh token with a longer expiry."""
+        to_encode = data.copy()
+        expire = datetime.utcnow() + (expires_delta or timedelta(days=7))
+        to_encode.update({"exp": expire})
+        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+    @staticmethod
     def verify_token(token: str) -> Optional[UUID]:
         """Verify and decode a JWT token."""
         try:
@@ -71,64 +74,52 @@ class User(Base):
 
     @classmethod
     def register(cls, db, user_data: Dict[str, Any]) -> "User":
-        """Register a new user with validation."""
-        try:
-            # Validate password length first
-            password = user_data.get('password', '')
-            if len(password) < 6:  # Strictly less than 6 characters
-                raise ValueError("Password must be at least 6 characters long")
-            
-            # Check if email/username exists
-            existing_user = db.query(cls).filter(
-                (cls.email == user_data.get('email')) |
-                (cls.username == user_data.get('username'))
-            ).first()
-            
-            if existing_user:
-                raise ValueError("Username or email already exists")
+        """Register a new user."""
+        password = user_data.get('password', '')
+        if len(password) < 6:
+            raise ValueError("Password must be at least 6 characters long")
 
-            # Validate using Pydantic schema
-            user_create = UserCreate.model_validate(user_data)
-            
-            # Create new user instance
-            new_user = cls(
-                first_name=user_create.first_name,
-                last_name=user_create.last_name,
-                email=user_create.email,
-                username=user_create.username,
-                password=cls.hash_password(user_create.password),
-                is_active=True,
-                is_verified=False
-            )
-            
-            db.add(new_user)
-            db.flush()
-            return new_user
-            
-        except ValidationError as e:
-            raise ValueError(str(e)) # pragma: no cover
-        except ValueError as e:
-            raise e
+        existing_user = db.query(cls).filter(
+            (cls.email == user_data.get('email')) |
+            (cls.username == user_data.get('username'))
+        ).first()
+
+        if existing_user:
+            raise ValueError("Username or email already exists")
+
+        new_user = cls(
+            first_name=user_data['first_name'],
+            last_name=user_data['last_name'],
+            email=user_data['email'],
+            username=user_data['username'],
+            password=cls.hash_password(password),
+            is_active=True,
+            is_verified=False
+        )
+
+        db.add(new_user)
+        db.flush()
+        return new_user
 
     @classmethod
     def authenticate(cls, db, username: str, password: str) -> Optional[Dict[str, Any]]:
-        """Authenticate user and return token with user data."""
+        """Authenticate user and return tokens with user ORM object."""
         user = db.query(cls).filter(
             (cls.username == username) | (cls.email == username)
         ).first()
 
         if not user or not user.verify_password(password):
-            return None # pragma: no cover
+            return None
 
         user.last_login = datetime.utcnow()
-        db.commit()
+        db.flush()
 
-        # Create token response using Pydantic models
-        user_response = UserResponse.model_validate(user)
-        token_response = Token(
-            access_token=cls.create_access_token({"sub": str(user.id)}),
-            token_type="bearer",
-            user=user_response
-        )
+        expires_at = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-        return token_response.model_dump()
+        return {
+            "access_token": cls.create_access_token({"sub": str(user.id)}),
+            "refresh_token": cls.create_refresh_token({"sub": str(user.id)}),
+            "token_type": "bearer",
+            "expires_at": expires_at,
+            "user": user
+        }
